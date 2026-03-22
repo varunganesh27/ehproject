@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>UPI Fraud Detector</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f5f3;
+    --surface: #ffffff;
+    --border: #e0e0dc;
+    --text: #1a1a18;
+    --muted: #6b6b68;
+    --green: #3B6D11; --green-bg: #EAF3DE;
+    --amber: #854F0B; --amber-bg: #FAEEDA;
+    --red: #A32D2D; --red-bg: #FCEBEB;
+    --blue: #185FA5; --blue-bg: #E6F1FB;
+    --radius: 10px; --radius-sm: 6px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; gap: 12px; }
+  header h1 { font-size: 18px; font-weight: 600; }
+  header p { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .badge { background: var(--blue-bg); color: var(--blue); font-size: 11px; padding: 3px 10px; border-radius: 99px; font-weight: 500; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .stat-val { font-size: 22px; font-weight: 600; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+  input, select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 14px; background: #fafaf8; color: var(--text); outline: none; }
+  input:focus, select:focus { border-color: #aaa; }
+  .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+  button { padding: 9px 18px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--text); font-size: 14px; cursor: pointer; font-weight: 500; transition: background 0.15s; }
+  button:hover { background: #f0f0ee; }
+  .btn-primary { background: var(--text); color: #fff; border-color: var(--text); }
+  .btn-primary:hover { background: #333; }
+  .btn-danger { background: var(--red); color: #fff; border-color: var(--red); }
+  .btn-danger:hover { background: #791F1F; }
+  .btn-approve { background: var(--green); color: #fff; border-color: var(--green); }
+  .btn-approve:hover { background: #27500A; }
+
+  /* Result */
+  #result-card { display: none; }
+  .dual-score { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .score-box { background: #fafaf8; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; }
+  .score-box .s-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .score-box .s-val { font-size: 20px; font-weight: 600; }
+  .meter-bar { height: 8px; background: #eee; border-radius: 99px; overflow: hidden; margin-top: 8px; }
+  .meter-fill { height: 100%; border-radius: 99px; transition: width 0.5s, background 0.5s; }
+  .risk-badge { display: inline-block; padding: 4px 12px; border-radius: 99px; font-size: 12px; font-weight: 600; margin: 10px 0; }
+  .flag-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--muted); padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .flag-item:last-child { border: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .alert-box { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin: 10px 0; display: none; }
+  .blocked-msg { background: var(--red-bg); border: 1px solid #F09595; border-radius: var(--radius-sm); text-align: center; padding: 16px; margin-top: 10px; display: none; }
+
+  /* Log */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border: none; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  .pill-low { background: var(--green-bg); color: var(--green); }
+  .pill-medium { background: var(--amber-bg); color: var(--amber); }
+  .pill-high { background: var(--red-bg); color: var(--red); }
+  .pill-approved { background: var(--green-bg); color: var(--green); }
+  .pill-blocked { background: var(--red-bg); color: var(--red); }
+  .pill-pending { background: #f0f0ee; color: var(--muted); }
+  .pill-overridden { background: var(--amber-bg); color: var(--amber); }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .grid3 { grid-template-columns: 1fr 1fr; }
+    .dual-score { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>UPI Fraud Detector</h1>
+    <p>Real-time analysis · ML + Rule-based · SQLite logging</p>
+  </div>
+  <span class="badge">College Project</span>
+</header>
+
+<main>
+  <!-- Stats -->
+  <div class="stats-row" id="stats-row">
+    <div class="stat-card"><div class="stat-label">Total scanned</div><div class="stat-val" id="s-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">Blocked</div><div class="stat-val" id="s-blocked" style="color:var(--red)">0</div></div>
+    <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-val" id="s-approved" style="color:var(--green)">0</div></div>
+    <div class="stat-card"><div class="stat-label">Avg risk score</div><div class="stat-val" id="s-avg">0</div></div>
+  </div>
+
+  <!-- Input form -->
+  <div class="card">
+    <div class="card-title">Transaction details</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div><label>Sender UPI ID</label><input id="sender" type="text" placeholder="user@okaxis" /></div>
+      <div><label>Receiver UPI ID</label><input id="receiver" type="text" placeholder="merchant@paytm" /></div>
+    </div>
+    <div class="grid3" style="margin-bottom:12px">
+      <div><label>Amount (₹)</label><input id="amount" type="number" placeholder="0" min="1" /></div>
+      <div><label>Time of transaction</label><input id="txtime" type="time" value="12:00" /></div>
+      <div><label>Transactions today</label>
+        <select id="freq">
+          <option value="1">1 (first today)</option>
+          <option value="3">2–5 (normal)</option>
+          <option value="8">6–10 (elevated)</option>
+          <option value="15">11+ (very high)</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2">
+      <div><label>Device / location</label>
+        <select id="device">
+          <option value="0">Known device &amp; location</option>
+          <option value="1">New device, known location</option>
+          <option value="2">Known device, new location</option>
+          <option value="3">New device &amp; new location</option>
+        </select>
+      </div>
+      <div><label>Receiver type</label>
+        <select id="recvtype">
+          <option value="0">Known / saved contact</option>
+          <option value="1">Registered merchant</option>
+          <option value="2">First-time receiver</option>
+          <option value="3">Suspicious / unverified</option>
+        </select>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="analyze()">Scan transaction</button>
+      <button onclick="resetForm()">Clear</button>
+    </div>
+  </div>
+
+  <!-- Result -->
+  <div class="card" id="result-card">
+    <div class="card-title">Risk analysis</div>
+    <div class="dual-score">
+      <div class="score-box">
+        <div class="s-label">Rule-based score</div>
+        <div class="s-val" id="rule-score">—</div>
+        <div class="meter-bar"><div class="meter-fill" id="rule-meter" style="width:0%"></div></div>
+      </div>
+      <div class="score-box">
+        <div class="s-label">ML fraud probability</div>
+        <div class="s-val" id="ml-prob">—</div>
+        <div class="meter-bar"><div class="meter-fill" id="ml-meter" style="width:0%"></div></div>
+      </div>
+    </div>
+    <span class="risk-badge" id="risk-badge"></span>
+    <div id="flags-list" style="margin:10px 0"></div>
+    <div class="alert-box" id="alert-box"></div>
+    <div class="blocked-msg" id="blocked-msg">
+      <div style="font-size:20px;margin-bottom:6px">🚫</div>
+      <p style="font-weight:600;color:var(--red)">Transaction auto-blocked</p>
+      <p style="font-size:13px;color:#793535;margin-top:4px">High risk signals detected. Blocked and logged.</p>
+    </div>
+    <div class="btn-row" id="action-btns"></div>
+  </div>
+
+  <!-- Log -->
+  <div class="card">
+    <div class="card-title">Transaction log (last 50)</div>
+    <div id="log-wrap"><p style="font-size:13px;color:var(--muted)">No transactions yet.</p></div>
+  </div>
+</main>
+
+<script>
+let currentTxId = null;
+
+async function fetchStats() {
+  try {
+    const r = await fetch("/stats");
+    const d = await r.json();
+    document.getElementById("s-total").textContent = d.total;
+    document.getElementById("s-blocked").textContent = d.blocked;
+    document.getElementById("s-approved").textContent = d.approved;
+    document.getElementById("s-avg").textContent = d.avg_risk_score;
+  } catch(e) {}
+}
+
+async function fetchHistory() {
+  try {
+    const r = await fetch("/history");
+    const rows = await r.json();
+    const wrap = document.getElementById("log-wrap");
+    if (!rows.length) { wrap.innerHTML = '<p style="font-size:13px;color:var(--muted)">No transactions yet.</p>'; return; }
+    wrap.innerHTML = `<table>
+      <thead><tr><th>#</th><th>Time</th><th>From</th><th>To</th><th>Amount</th><th>Rule</th><th>ML%</th><th>Status</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr>
+          <td>${r.id}</td>
+          <td>${r.timestamp.split(" ")[1]}</td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.sender_upi}</td>
+          <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.receiver_upi}</td>
+          <td>₹${Number(r.amount).toLocaleString("en-IN")}</td>
+          <td><span class="pill pill-${r.final_risk_level}">${r.rule_score}/100</span></td>
+          <td>${(r.ml_fraud_prob*100).toFixed(1)}%</td>
+          <td><span class="pill pill-${r.status.toLowerCase()}">${r.status}</span></td>
+        </tr>`).join("")}</tbody>
+    </table>`;
+  } catch(e) {}
+}
+
+async function analyze() {
+  const sender = document.getElementById("sender").value.trim();
+  const receiver = document.getElementById("receiver").value.trim();
+  const amount = parseFloat(document.getElementById("amount").value);
+  const hour = parseInt(document.getElementById("txtime").value.split(":")[0]);
+  const freq = parseInt(document.getElementById("freq").value);
+  const device = parseInt(document.getElementById("device").value);
+  const recvtype = parseInt(document.getElementById("recvtype").value);
+
+  if (!sender || !receiver || !amount) { alert("Please fill in sender, receiver and amount."); return; }
+
+  const res = await fetch("/analyze", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ sender_upi: sender, receiver_upi: receiver, amount, hour, freq_today: freq, device_match: device, receiver_type: recvtype })
+  });
+  const d = await res.json();
+  currentTxId = d.tx_id;
+  renderResult(d);
+  fetchStats();
+  fetchHistory();
+}
+
+function riskColor(level) {
+  return level === "high" ? "#E24B4A" : level === "medium" ? "#EF9F27" : "#639922";
+}
+
+function renderResult(d) {
+  document.getElementById("result-card").style.display = "block";
+  const rc = riskColor(d.risk_level);
+
+  document.getElementById("rule-score").textContent = d.rule_score + " / 100";
+  document.getElementById("rule-meter").style.width = d.rule_score + "%";
+  document.getElementById("rule-meter").style.background = rc;
+
+  document.getElementById("ml-prob").textContent = d.ml_fraud_prob + "%";
+  document.getElementById("ml-meter").style.width = d.ml_fraud_prob + "%";
+  document.getElementById("ml-meter").style.background = rc;
+
+  const levelMap = {high: "High risk", medium: "Medium risk", low: "Low risk"};
+  const bgMap = {high: "#FCEBEB", medium: "#FAEEDA", low: "#EAF3DE"};
+  const fgMap = {high: "#A32D2D", medium: "#854F0B", low: "#3B6D11"};
+  const badge = document.getElementById("risk-badge");
+  badge.textContent = levelMap[d.risk_level];
+  badge.style.background = bgMap[d.risk_level];
+  badge.style.color = fgMap[d.risk_level];
+
+  const dotColor = {high: "#E24B4A", medium: "#EF9F27", low: "#639922"};
+  document.getElementById("flags-list").innerHTML = d.flags.map(f =>
+    `<div class="flag-item"><div class="dot" style="background:${dotColor[f.level]}"></div><span>${f.text}</span></div>`
+  ).join("");
+
+  const alertBox = document.getElementById("alert-box");
+  if (d.risk_level !== "low") {
+    alertBox.style.display = "block";
+    alertBox.style.background = bgMap[d.risk_level];
+    alertBox.style.border = "1px solid " + rc + "55";
+    alertBox.style.color = fgMap[d.risk_level];
+    alertBox.textContent = d.auto_blocked
+      ? "Transaction auto-blocked due to high-risk signals. Logged to database."
+      : "Moderate risk detected. Please review before approving.";
+  } else {
+    alertBox.style.display = "none";
+  }
+
+  const blockedMsg = document.getElementById("blocked-msg");
+  blockedMsg.style.display = d.auto_blocked ? "block" : "none";
+
+  const actions = document.getElementById("action-btns");
+  if (d.auto_blocked) {
+    actions.innerHTML = `<button onclick="updateStatus('Overridden')">Override &amp; allow</button>`;
+  } else if (d.risk_level === "medium") {
+    actions.innerHTML = `<button class="btn-approve" onclick="updateStatus('Approved')">Approve</button><button class="btn-danger" onclick="updateStatus('Blocked')">Block</button>`;
+  } else {
+    actions.innerHTML = `<button class="btn-approve" onclick="updateStatus('Approved')">Approve</button>`;
+  }
+}
+
+async function updateStatus(status) {
+  if (!currentTxId) return;
+  await fetch("/update_status", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({tx_id: currentTxId, status})
+  });
+  document.getElementById("action-btns").innerHTML = `<span style="font-size:13px;color:var(--muted)">Status updated: ${status}</span>`;
+  fetchStats();
+  fetchHistory();
+}
+
+function resetForm() {
+  ["sender","receiver","amount"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("txtime").value = "12:00";
+  document.getElementById("freq").value = "1";
+  document.getElementById("device").value = "0";
+  document.getElementById("recvtype").value = "0";
+  document.getElementById("result-card").style.display = "none";
+  currentTxId = null;
+}
+
+fetchStats();
+fetchHistory();
+</script>
+</body>
+</html>
